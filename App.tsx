@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Button, StatusBar, Text, View } from 'react-native';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Button, StatusBar, Text } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from 'react-native-webview';
 import Orientation from 'react-native-orientation-locker';
 
-export default function App() {
+function AppContent() {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
@@ -13,10 +13,10 @@ export default function App() {
 
   if (hasError) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+      <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
         <Text style={{ fontSize: 18, marginBottom: 12 }}>Sem conexão com a internet 😕</Text>
         <Button title="Tentar novamente" onPress={() => setHasError(false)} />
-      </View>
+      </SafeAreaView>
     )
   }
 
@@ -35,4 +35,12 @@ export default function App() {
       />
     </SafeAreaView>
   );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent/>
+    </SafeAreaProvider>
+  )
 }
