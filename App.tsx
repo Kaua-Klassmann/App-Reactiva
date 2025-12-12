@@ -20,17 +20,26 @@ function AppContent() {
     )
   }
 
+  const injectedJavascript = `
+  	const meta = document.createElement('meta');
+	  meta.name = 'viewport';
+	  meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+	  document.head.appendChild(meta);
+  `;
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <StatusBar barStyle="dark-content" />
       <WebView
         source={{ uri: 'https://reactiva.com.br/' }}
         startInLoadingState
-        javaScriptEnabled
         domStorageEnabled
         sharedCookiesEnabled
         cacheEnabled
-        scalesPageToFit
+        scalesPageToFit={false}
+	      allowsZooming={false}
+	      injectedJavaScript={injectedJavascript}
+	      javaScriptEnabled
         onError={() => setHasError(true)}
       />
     </SafeAreaView>
