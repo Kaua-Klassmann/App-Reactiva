@@ -6,44 +6,112 @@ import Orientation from 'react-native-orientation-locker';
 
 const INJECT_SCRIPT = `
   (function() {
-    const meta = document.createElement('meta');
-    meta.setAttribute('name', 'viewport');
-    meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-    
-    // Remove meta viewport existente
-    const existingMeta = document.querySelector('meta[name="viewport"]');
-    if (existingMeta) {
-      existingMeta.parentNode.removeChild(existingMeta);
+    function setViewport() {
+      // Remove todas as metas viewport existentes
+      const metas = document.querySelectorAll('meta[name="viewport"]');
+      metas.forEach(meta => meta.remove());
+      
+      // Adiciona a nova meta viewport
+      const meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no';
+      document.head.insertBefore(meta, document.head.firstChild);
     }
     
-    document.getElementsByTagName('head')[0].appendChild(meta);
+    // Executa imediatamente
+    setViewport();
+    
+    // Observa mudanças no head para impedir alterações na viewport
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach(function(node) {
+            if (node.tagName === 'META' && node.getAttribute('name') === 'viewport') {
+              const content = node.getAttribute('content');
+              if (!content.includes('user-scalable=no') || !content.includes('maximum-scale=1')) {
+                setViewport();
+              }
+            }
+          });
+        } else if (mutation.type === 'attributes' && mutation.target.getAttribute('name') === 'viewport') {
+          setViewport();
+        }
+      });
+    });
+    
+    observer.observe(document.head, {
+      childList: true,
+      attributes: true,
+      subtree: true
+    });
 
+    // Adiciona CSS para prevenir zoom
     const style = document.createElement('style');
     style.innerHTML = \`
       * {
         -webkit-user-select: none;
         -webkit-touch-callout: none;
-        touch-action: pan-x pan-y;
+        touch-action: pan-x pan-y !important;
       }
       
       body {
-        -webkit-text-size-adjust: 100%;
+        -webkit-text-size-adjust: 100% !important;
+        touch-action: pan-x pan-y !important;
+      }
+      
+      html {
+        touch-action: pan-x pan-y !important;
       }
     \`;
     document.head.appendChild(style);
 
-    // Previne zoom com gestos
+    // Previne gestos de zoom
+    let lastTouchEnd = 0;
+    
+    document.addEventListener('touchstart', function(e) {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+    
+    document.addEventListener('touchmove', function(e) {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+    
+    document.addEventListener('touchend', function(e) {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, { passive: false });
+    
+    // Previne eventos de gesture do iOS
     document.addEventListener('gesturestart', function(e) {
       e.preventDefault();
-    });
+    }, { passive: false });
     
     document.addEventListener('gesturechange', function(e) {
       e.preventDefault();
-    });
+    }, { passive: false });
     
     document.addEventListener('gestureend', function(e) {
       e.preventDefault();
-    });
+    }, { passive: false });
+    
+    // Previne double-tap zoom
+    let lastTap = 0;
+    document.addEventListener('touchend', function(e) {
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTap;
+      if (tapLength < 300 && tapLength > 0) {
+        e.preventDefault();
+      }
+      lastTap = currentTime;
+    }, { passive: false });
+    
   })();
   true;
 `;
@@ -89,18 +157,22 @@ function AppContent() {
         source={{ uri: 'https://reactiva.com.br/' }}
         onNavigationStateChange={nav => setCanGoBack(nav.canGoBack)}
         javaScriptEnabled
-        injectedJavaScript={INJECT_SCRIPT}
         injectedJavaScriptBeforeContentLoaded={INJECT_SCRIPT}
+        injectedJavaScript={INJECT_SCRIPT}
         onError={() => setHasError(true)}
-        {...Platform.OS === 'android' && {
+        onLoadEnd={() => {
+          webViewRef.current?.injectJavaScript(INJECT_SCRIPT);
+        }}
+        {...(Platform.OS === 'android' && {
           scalesPageToFit: false,
           setBuiltInZoomControls: false,
-        }}
-        {...Platform.OS === 'ios' && {
+        })}
+        {...(Platform.OS === 'ios' && {
           allowsLinkPreview: false,
           scrollEnabled: true,
           bounces: false,
-        }}
+          decelerationRate: 'normal',
+        })}
       />
     </SafeAreaView>
   );
